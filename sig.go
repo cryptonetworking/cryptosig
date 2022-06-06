@@ -37,6 +37,15 @@ type Sig struct {
 	sig  any
 }
 
+func (sig *Sig) Unwrap() any {
+	return sig.sig
+}
+func (pk *PK) Unwrap() any {
+	return pk.pk
+}
+func (sk *SK) Unwrap() any {
+	return sk.sk
+}
 func Register(algo SigningAlgo[any, any, any]) {
 	reg[algo.Algo()] = algo
 }

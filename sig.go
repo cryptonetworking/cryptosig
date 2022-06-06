@@ -2,6 +2,7 @@ package cryptography
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/itsabgr/go-handy"
 	"github.com/vmihailenco/msgpack/v5"
@@ -37,6 +38,15 @@ type Sig struct {
 	sig  any
 }
 
+func (sig *Sig) Unwrap() any {
+	return sig.sig
+}
+func (pk *PK) Unwrap() any {
+	return pk.pk
+}
+func (sk *SK) Unwrap() any {
+	return sk.sk
+}
 func Register(algo SigningAlgo[any, any, any]) {
 	reg[algo.Algo()] = algo
 }
@@ -57,74 +67,99 @@ func New(algo string) *SK {
 	return &SK{algorithm, sk}
 }
 
-type encoded struct {
-	Kind  string
-	Algo  string
-	Bytes []byte
+func encode(algo string, kind int8, b []byte) []byte {
+	buff := bytes.NewBuffer(nil)
+	enc := msgpack.NewEncoder(buff)
+	handy.Throw(enc.EncodeString(algo))
+	handy.Throw(enc.EncodeInt8(kind))
+	handy.Throw(enc.EncodeBytes(b))
+	return buff.Bytes()
+}
+func decode(p []byte) (algo string, kind int8, b []byte, err error) {
+	dec := msgpack.NewDecoder(bytes.NewReader(p))
+	algo, err = dec.DecodeString()
+	if err != nil {
+		return
+	}
+	kind, err = dec.DecodeInt8()
+	if err != nil {
+		return
+	}
+	b, err = dec.DecodeBytes()
+	if err != nil {
+		return
+	}
+	return
 }
 
 func (sk *SK) UnsafeEncode() []byte {
 	algo := sk.algo
 	name := algo.Algo()
 	b := algo.EncodeSK(sk.sk)
-	buff := bytes.NewBuffer(nil)
-	handy.Throw(msgpack.NewEncoder(buff).Encode(encoded{"SK", name, b}))
-	return buff.Bytes()
+	return encode(name, 1, b)
 }
 func (sig *Sig) Encode() []byte {
 	algo := sig.algo
 	name := algo.Algo()
 	b := algo.EncodeSig(sig.sig)
-	buff := bytes.NewBuffer(nil)
-	handy.Throw(msgpack.NewEncoder(buff).Encode(encoded{"Sig", name, b}))
-	return buff.Bytes()
+	return encode(name, 3, b)
 }
 func (pk *PK) Encode() []byte {
 	algo := pk.algo
 	name := algo.Algo()
 	b := algo.EncodePK(pk.pk)
-	buff := bytes.NewBuffer(nil)
-	handy.Throw(msgpack.NewEncoder(buff).Encode(encoded{"PK", name, b}))
-	return buff.Bytes()
+	return encode(name, 2, b)
 }
 
 func DecodeSK(b []byte) (*SK, error) {
-	enc := new(encoded)
-	buff := bytes.NewReader(b)
-	handy.Throw(msgpack.NewDecoder(buff).Decode(enc))
-	algo, found := reg[enc.Algo]
-	if !found {
-		return nil, fmt.Errorf("unsupported algorithm %q", enc.Algo)
+	name, kind, p, err := decode(b)
+	if err != nil {
+		return nil, err
 	}
-	sk, err := algo.DecodeSK(enc.Bytes)
+	if kind != 1 {
+		return nil, errors.New("not sk")
+	}
+	algo, found := reg[name]
+	if !found {
+		return nil, fmt.Errorf("unsupported algorithm %q", name)
+	}
+	sk, err := algo.DecodeSK(p)
 	if err != nil {
 		return nil, err
 	}
 	return &SK{algo, sk}, nil
 }
 func DecodePK(b []byte) (*PK, error) {
-	enc := new(encoded)
-	buff := bytes.NewReader(b)
-	handy.Throw(msgpack.NewDecoder(buff).Decode(enc))
-	algo, found := reg[enc.Algo]
-	if !found {
-		return nil, fmt.Errorf("unsupported algorithm %q", enc.Algo)
+	name, kind, p, err := decode(b)
+	if err != nil {
+		return nil, err
 	}
-	pk, err := algo.DecodePK(enc.Bytes)
+	if kind != 2 {
+		return nil, errors.New("not pk")
+	}
+	algo, found := reg[name]
+	if !found {
+		return nil, fmt.Errorf("unsupported algorithm %q", name)
+	}
+	pk, err := algo.DecodePK(p)
 	if err != nil {
 		return nil, err
 	}
 	return &PK{algo, pk}, nil
 }
 func DecodeSig(b []byte) (*Sig, error) {
-	enc := new(encoded)
-	buff := bytes.NewReader(b)
-	handy.Throw(msgpack.NewDecoder(buff).Decode(enc))
-	algo, found := reg[enc.Algo]
-	if !found {
-		return nil, fmt.Errorf("unsupported algorithm %q", enc.Algo)
+	name, kind, p, err := decode(b)
+	if err != nil {
+		return nil, err
 	}
-	sig, err := algo.DecodeSig(enc.Bytes)
+	if kind != 3 {
+		return nil, errors.New("not sig")
+	}
+	algo, found := reg[name]
+	if !found {
+		return nil, fmt.Errorf("unsupported algorithm %q", name)
+	}
+	sig, err := algo.DecodeSig(p)
 	if err != nil {
 		return nil, err
 	}

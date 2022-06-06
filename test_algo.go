@@ -39,5 +39,15 @@ func TestAlgo(t *testing.T, algo SigningAlgo[any, any, any]) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sk2 := New(Algo)
+	err = sk2.PK().Verify(sig, msg)
+	if err == nil {
+		t.Fatal()
+	}
+	sig2 := sk2.Sign(msg)
+	err = pk.Verify(sig2, msg)
+	if err == nil {
+		t.Fatal()
+	}
 	return
 }

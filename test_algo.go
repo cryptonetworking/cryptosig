@@ -4,7 +4,7 @@ import "testing"
 
 func TestAlgo(t *testing.T, algo SigningAlgo[any, any, any]) {
 	Algo := algo.Algo()
-	Register(algo)
+	RegisterSigAlgo(algo)
 	sk := New(Algo)
 	if sk.Algo() != Algo {
 		t.FailNow()

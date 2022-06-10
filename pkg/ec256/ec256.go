@@ -74,5 +74,5 @@ func (ec256) Verify(sig any, pk any, msg []byte) error {
 }
 
 func init() {
-	cryptography.Register(ec256{})
+	cryptography.RegisterSigAlgo(ec256{})
 }

@@ -22,7 +22,7 @@ type SigningAlgo[SK, PK, Sig any] interface {
 	Verify(sig Sig, pk PK, msg []byte) error
 }
 
-var reg = make(map[string]SigningAlgo[any, any, any])
+var regSigAlgo = make(map[string]SigningAlgo[any, any, any])
 
 type SK struct {
 	algo SigningAlgo[any, any, any]
@@ -47,11 +47,11 @@ func (pk *PK) Unwrap() any {
 func (sk *SK) Unwrap() any {
 	return sk.sk
 }
-func Register(algo SigningAlgo[any, any, any]) {
-	reg[algo.Algo()] = algo
+func RegisterSigAlgo(algo SigningAlgo[any, any, any]) {
+	regSigAlgo[algo.Algo()] = algo
 }
 func Gen(name string) *SK {
-	algo := reg[name]
+	algo := regSigAlgo[name]
 	sk := algo.New()
 	return &SK{algo, sk}
 }
@@ -62,7 +62,7 @@ func (sk *SK) Sign(msg []byte) *Sig {
 }
 
 func New(algo string) *SK {
-	algorithm := reg[algo]
+	algorithm := regSigAlgo[algo]
 	sk := algorithm.New()
 	return &SK{algorithm, sk}
 }
@@ -119,7 +119,7 @@ func DecodeSK(b []byte) (*SK, error) {
 	if kind != 1 {
 		return nil, errors.New("not sk")
 	}
-	algo, found := reg[name]
+	algo, found := regSigAlgo[name]
 	if !found {
 		return nil, fmt.Errorf("unsupported algorithm %q", name)
 	}
@@ -137,7 +137,7 @@ func DecodePK(b []byte) (*PK, error) {
 	if kind != 2 {
 		return nil, errors.New("not pk")
 	}
-	algo, found := reg[name]
+	algo, found := regSigAlgo[name]
 	if !found {
 		return nil, fmt.Errorf("unsupported algorithm %q", name)
 	}
@@ -155,7 +155,7 @@ func DecodeSig(b []byte) (*Sig, error) {
 	if kind != 3 {
 		return nil, errors.New("not sig")
 	}
-	algo, found := reg[name]
+	algo, found := regSigAlgo[name]
 	if !found {
 		return nil, fmt.Errorf("unsupported algorithm %q", name)
 	}

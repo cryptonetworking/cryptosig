@@ -72,5 +72,5 @@ func (ed25519) Verify(sig any, pk any, msg []byte) error {
 }
 
 func init() {
-	cryptography.Register(ed25519{})
+	cryptography.RegisterSigAlgo(ed25519{})
 }

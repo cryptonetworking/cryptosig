@@ -38,6 +38,35 @@ type Sig struct {
 	sig  any
 }
 
+func (sig *Sig) MarshalBinary() ([]byte, error) {
+	return sig.Encode(), nil
+}
+func (pk *PK) MarshalBinary() ([]byte, error) {
+	return pk.Encode(), nil
+}
+
+func (sig *Sig) UnmarshalBinary(data []byte) error {
+	sig2, err := DecodeSig(data)
+	if err == nil {
+		*sig = *sig2
+	}
+	return err
+}
+func (sk *SK) UnmarshalBinary(data []byte) error {
+	sk2, err := DecodeSK(data)
+	if err == nil {
+		*sk = *sk2
+	}
+	return err
+}
+func (pk *PK) UnmarshalBinary(data []byte) error {
+	pk2, err := DecodePK(data)
+	if err == nil {
+		*pk = *pk2
+	}
+	return err
+}
+
 func (sig *Sig) Unwrap() any {
 	return sig.sig
 }

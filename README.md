@@ -1,3 +1,3 @@
-# cryptography
+# cryptosig
 
- abstracted multi-algorithm cryptographic library
+abstracted multi-algorithm cryptographic signature library

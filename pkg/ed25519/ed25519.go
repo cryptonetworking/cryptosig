@@ -4,7 +4,7 @@ import (
 	lib "crypto/ed25519"
 	"crypto/rand"
 	"errors"
-	"github.com/cryptonetworking/cryptography"
+	"github.com/cryptonetworking/cryptosig"
 	"github.com/itsabgr/go-handy"
 )
 
@@ -96,5 +96,5 @@ func (ed25519) Verify(sig any, pk any, msg []byte) error {
 }
 
 func init() {
-	cryptography.RegisterSigAlgo(ed25519{})
+	cryptosig.RegisterSigAlgo(ed25519{})
 }

@@ -1,53 +1,68 @@
 package cryptography
 
-import "testing"
+import (
+	"errors"
+	"github.com/itsabgr/go-handy"
+)
 
-func TestAlgo(t *testing.T, algo SigningAlgo[any, any, any]) {
+func TestAlgo(algo SigningAlgo[any, any, any]) error {
 	Algo := algo.Algo()
 	RegisterSigAlgo(algo)
 	sk := New(Algo)
 	if sk.Algo() != Algo {
-		t.FailNow()
+		return errors.New("non-equal algorithm name")
 	}
-	msg := Rand(int(RandN(0, 512)))
-	sig, err := DecodeSig(sk.Sign(msg).Encode())
+	msg := handy.Rand(512)
+	b, err := sk.Sign(msg).MarshalBinary()
 	if err != nil {
-		t.Fatal(err)
+		return err
+	}
+	sig, err := UnmarshalBinarySignature(b)
+	if err != nil {
+		return err
 	}
 	if sig.Algo() != Algo {
-		t.FailNow()
+		return errors.New("non-equal algorithm name")
 	}
-	sk, err = DecodeSK(sk.UnsafeEncode())
+	b, err = sk.UnsafeMarshalBinary()
 	if err != nil {
-		t.Fatal(err)
+		return err
+	}
+	sk, err = UnmarshalBinarySecretKey(b)
+	if err != nil {
+		return err
 	}
 	if sk.Algo() != Algo {
-		t.FailNow()
+		return err
 	}
-	pk, err := DecodePK(sk.PK().Encode())
+	b, err = sk.PublicKey().MarshalBinary()
 	if err != nil {
-		t.Fatal(err)
+		return err
+	}
+	pk, err := UnmarshalBinaryPublicKey(b)
+	if err != nil {
+		return err
 	}
 	if pk.Algo() != Algo {
-		t.FailNow()
+		return errors.New("non-equal algorithm name")
 	}
 	err = sig.Verify(pk, msg)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	err = pk.Verify(sig, msg)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	sk2 := New(Algo)
-	err = sk2.PK().Verify(sig, msg)
+	err = sk2.PublicKey().Verify(sig, msg)
 	if err == nil {
-		t.Fatal()
+		return errors.New("algorithm failed")
 	}
 	sig2 := sk2.Sign(msg)
 	err = pk.Verify(sig2, msg)
 	if err == nil {
-		t.Fatal()
+		return errors.New("algorithm failed")
 	}
-	return
+	return nil
 }

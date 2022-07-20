@@ -2,98 +2,123 @@ package cryptography
 
 import (
 	"bytes"
+	"encoding"
 	"errors"
 	"fmt"
 	"github.com/itsabgr/go-handy"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type SigningAlgo[SK, PK, Sig any] interface {
+type SigningAlgo[S, P, Sig any] interface {
 	Algo() string
-	DecodeSK([]byte) (SK, error)
-	DecodePK([]byte) (PK, error)
-	DecodeSig([]byte) (Sig, error)
-	EncodeSK(SK) []byte
-	EncodePK(PK) []byte
-	EncodeSig(Sig) []byte
-	Sign(SK, []byte) Sig
-	Derive(sk SK) PK
-	New() SK
-	Verify(sig Sig, pk PK, msg []byte) error
+	UnmarshalBinarySecretKey([]byte) (S, error)
+	UnmarshalBinaryPublicKey([]byte) (P, error)
+	UnmarshalBinarySignature([]byte) (Sig, error)
+	MarshalBinarySecretKey(S) []byte
+	MarshalBinaryPublicKey(P) []byte
+	MarshalBinarySignature(Sig) []byte
+	Sign(S, []byte) Sig
+	Derive(S) P
+	New() S
+	Verify(Sig, P, []byte) error
+}
+type SecretKey interface {
+	encoding.BinaryUnmarshaler
+	UnsafeMarshalBinary() ([]byte, error)
+	Algo() string
+	Sign(msg []byte) Signature
+	Unwrap() any
+	PublicKey() PublicKey
+}
+type PublicKey interface {
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+	Algo() string
+	Verify(Signature, []byte) error
+	Unwrap() any
+}
+
+type Signature interface {
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+	Algo() string
+	Verify(PublicKey, []byte) error
+	Unwrap() any
 }
 
 var regSigAlgo = make(map[string]SigningAlgo[any, any, any])
 
-type SK struct {
+type s struct {
 	algo SigningAlgo[any, any, any]
 	sk   any
 }
 
-type PK struct {
+type p struct {
 	algo SigningAlgo[any, any, any]
 	pk   any
 }
-type Sig struct {
+type si struct {
 	algo SigningAlgo[any, any, any]
 	sig  any
 }
 
-func (sig *Sig) MarshalBinary() ([]byte, error) {
-	return sig.Encode(), nil
-}
-func (pk *PK) MarshalBinary() ([]byte, error) {
-	return pk.Encode(), nil
+func (sig *si) MarshalBinary() ([]byte, error) {
+	return sig.encode(), nil
 }
 
-func (sig *Sig) UnmarshalBinary(data []byte) error {
-	sig2, err := DecodeSig(data)
+func (sk *s) MarshalBinary() ([]byte, error) {
+	panic("marshaling secret-key is not allowed and can cause security problems")
+}
+
+func (pk *p) MarshalBinary() ([]byte, error) {
+	return pk.encode(), nil
+}
+
+func (sig *si) UnmarshalBinary(data []byte) error {
+	sig2, err := UnmarshalBinarySignature(data)
 	if err == nil {
-		*sig = *sig2
+		*sig = *(sig2.(*si))
 	}
 	return err
 }
-func (sk *SK) UnmarshalBinary(data []byte) error {
-	sk2, err := DecodeSK(data)
+func (sk *s) UnmarshalBinary(data []byte) error {
+	sk2, err := UnmarshalBinarySecretKey(data)
 	if err == nil {
-		*sk = *sk2
+		*sk = *(sk2.(*s))
 	}
 	return err
 }
-func (pk *PK) UnmarshalBinary(data []byte) error {
-	pk2, err := DecodePK(data)
+func (pk *p) UnmarshalBinary(data []byte) error {
+	pk2, err := UnmarshalBinaryPublicKey(data)
 	if err == nil {
-		*pk = *pk2
+		*pk = *(pk2.(*p))
 	}
 	return err
 }
 
-func (sig *Sig) Unwrap() any {
+func (sig *si) Unwrap() any {
 	return sig.sig
 }
-func (pk *PK) Unwrap() any {
+func (pk *p) Unwrap() any {
 	return pk.pk
 }
-func (sk *SK) Unwrap() any {
+func (sk *s) Unwrap() any {
 	return sk.sk
 }
 func RegisterSigAlgo(algo SigningAlgo[any, any, any]) {
 	regSigAlgo[algo.Algo()] = algo
 }
-func Gen(name string) *SK {
-	algo := regSigAlgo[name]
-	sk := algo.New()
-	return &SK{algo, sk}
-}
-func (sk *SK) Sign(msg []byte) *Sig {
+
+func (sk *s) Sign(msg []byte) Signature {
 	algo := sk.algo
-	sig := algo.Sign(sk.sk, msg)
-	return &Sig{algo, sig}
+	signature := algo.Sign(sk.sk, msg)
+	return &si{algo, signature}
 }
 
-func New(algo string) *SK {
+func New(algo string) SecretKey {
 	algorithm := regSigAlgo[algo]
-	sk := algorithm.New()
-	return &SK{algorithm, sk}
+	secKey := algorithm.New()
+	return &s{algorithm, secKey}
 }
 
 func encode(algo string, kind int8, b []byte) []byte {
@@ -121,101 +146,100 @@ func decode(p []byte) (algo string, kind int8, b []byte, err error) {
 	return
 }
 
-func (sk *SK) UnsafeEncode() []byte {
+func (sk *s) UnsafeMarshalBinary() ([]byte, error) {
 	algo := sk.algo
 	name := algo.Algo()
-	b := algo.EncodeSK(sk.sk)
-	return encode(name, 1, b)
+	b := algo.MarshalBinarySecretKey(sk.sk)
+	return encode(name, 1, b), nil
 }
-func (sig *Sig) Encode() []byte {
+func (sig *si) encode() []byte {
 	algo := sig.algo
 	name := algo.Algo()
-	b := algo.EncodeSig(sig.sig)
+	b := algo.MarshalBinarySignature(sig.sig)
 	return encode(name, 3, b)
 }
-func (pk *PK) Encode() []byte {
+func (pk *p) encode() []byte {
 	algo := pk.algo
 	name := algo.Algo()
-	b := algo.EncodePK(pk.pk)
+	b := algo.MarshalBinaryPublicKey(pk.pk)
 	return encode(name, 2, b)
 }
 
-func DecodeSK(b []byte) (*SK, error) {
+func UnmarshalBinarySecretKey(b []byte) (SecretKey, error) {
 	name, kind, p, err := decode(b)
 	if err != nil {
 		return nil, err
 	}
 	if kind != 1 {
-		return nil, errors.New("not sk")
+		return nil, errors.New("not s")
 	}
 	algo, found := regSigAlgo[name]
 	if !found {
 		return nil, fmt.Errorf("unsupported algorithm %q", name)
 	}
-	sk, err := algo.DecodeSK(p)
+	secKey, err := algo.UnmarshalBinarySecretKey(p)
 	if err != nil {
 		return nil, err
 	}
-	return &SK{algo, sk}, nil
+	return &s{algo, secKey}, nil
 }
-func DecodePK(b []byte) (*PK, error) {
-	name, kind, p, err := decode(b)
+func UnmarshalBinaryPublicKey(b []byte) (PublicKey, error) {
+	name, kind, bin, err := decode(b)
 	if err != nil {
 		return nil, err
 	}
 	if kind != 2 {
-		return nil, errors.New("not pk")
+		return nil, errors.New("not p")
 	}
 	algo, found := regSigAlgo[name]
 	if !found {
 		return nil, fmt.Errorf("unsupported algorithm %q", name)
 	}
-	pk, err := algo.DecodePK(p)
+	pubKey, err := algo.UnmarshalBinaryPublicKey(bin)
 	if err != nil {
 		return nil, err
 	}
-	return &PK{algo, pk}, nil
+	return &p{algo, pubKey}, nil
 }
-func DecodeSig(b []byte) (*Sig, error) {
+func UnmarshalBinarySignature(b []byte) (Signature, error) {
 	name, kind, p, err := decode(b)
 	if err != nil {
 		return nil, err
 	}
 	if kind != 3 {
-		return nil, errors.New("not sig")
+		return nil, errors.New("not si")
 	}
 	algo, found := regSigAlgo[name]
 	if !found {
 		return nil, fmt.Errorf("unsupported algorithm %q", name)
 	}
-	sig, err := algo.DecodeSig(p)
+	signature, err := algo.UnmarshalBinarySignature(p)
 	if err != nil {
 		return nil, err
 	}
-	return &Sig{algo, sig}, nil
+	return &si{algo, signature}, nil
 }
-func (sk *SK) PK() *PK {
+func (sk *s) PublicKey() PublicKey {
 	algo := sk.algo
-	pk := algo.Derive(sk.sk)
-	return &PK{algo, pk}
+	return &p{algo, algo.Derive(sk.sk)}
 }
-func (pk *PK) Verify(sig *Sig, msg []byte) error {
+func (pk *p) Verify(sig Signature, msg []byte) error {
 	algo := pk.algo
-	return algo.Verify(sig.sig, pk.pk, msg)
+	return algo.Verify(sig.Unwrap(), pk.pk, msg)
 }
-func (sig *Sig) Verify(pk *PK, msg []byte) error {
+func (sig *si) Verify(pk PublicKey, msg []byte) error {
 	algo := sig.algo
-	return algo.Verify(sig.sig, pk.pk, msg)
+	return algo.Verify(sig.sig, pk.Unwrap(), msg)
 }
 
-func (sig *Sig) Algo() string {
+func (sig *si) Algo() string {
 	return sig.algo.Algo()
 }
 
-func (pk *PK) Algo() string {
+func (pk *p) Algo() string {
 	return pk.algo.Algo()
 }
 
-func (sk *SK) Algo() string {
+func (sk *s) Algo() string {
 	return sk.algo.Algo()
 }

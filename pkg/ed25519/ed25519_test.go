@@ -8,6 +8,9 @@ import (
 
 func TestEd25519(t *testing.T) {
 	for range handy.N(10) {
-		cryptography.TestAlgo(t, ed25519{})
+		err := cryptography.TestAlgo(ed25519{})
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/itsabgr/go-handy"
@@ -28,7 +29,9 @@ type SigningAlgo[S, P, Sig any] interface {
 
 type SecretKey interface {
 	encoding.BinaryUnmarshaler
+	encoding.TextUnmarshaler
 	UnsafeMarshalBinary() ([]byte, error)
+	UnsafeMarshalText() ([]byte, error)
 	Algo() string
 	Sign(msg []byte) Signature
 	Unwrap() any
@@ -38,10 +41,14 @@ type HashedPublicKey interface {
 	Equal(PublicKey) bool
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
+	json.Marshaler
+	json.Unmarshaler
 }
 type PublicKey interface {
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
+	json.Marshaler
+	json.Unmarshaler
 	Algo() string
 	Verify(Signature, []byte) error
 	Unwrap() any
@@ -51,6 +58,8 @@ type PublicKey interface {
 type Signature interface {
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
+	json.Marshaler
+	json.Unmarshaler
 	Algo() string
 	Verify(PublicKey, []byte) error
 	Unwrap() any

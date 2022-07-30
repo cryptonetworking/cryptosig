@@ -232,7 +232,10 @@ func (sk *s) Unwrap() any {
 func RegisterSigAlgo(algo SigningAlgo[any, any, any]) {
 	regSigAlgo[algo.Algo()] = algo
 }
-
+func GetAlgo(name string) SigningAlgo[any, any, any] {
+	algo, _ := regSigAlgo[name]
+	return algo
+}
 func (sk *s) Sign(msg []byte) Signature {
 	algo := sk.algo
 	signature := algo.Sign(sk.sk, msg)

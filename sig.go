@@ -3,10 +3,12 @@ package cryptosig
 import (
 	"bytes"
 	"encoding"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/itsabgr/go-handy"
 	"github.com/vmihailenco/msgpack/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type SigningAlgo[S, P, Sig any] interface {
@@ -22,6 +24,7 @@ type SigningAlgo[S, P, Sig any] interface {
 	New() S
 	Verify(Sig, P, []byte) error
 }
+
 type SecretKey interface {
 	encoding.BinaryUnmarshaler
 	UnsafeMarshalBinary() ([]byte, error)
@@ -30,12 +33,18 @@ type SecretKey interface {
 	Unwrap() any
 	PublicKey() PublicKey
 }
+type HashedPublicKey interface {
+	Equal(PublicKey) bool
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+}
 type PublicKey interface {
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
 	Algo() string
 	Verify(Signature, []byte) error
 	Unwrap() any
+	Fork() HashedPublicKey
 }
 
 type Signature interface {
@@ -57,6 +66,47 @@ type p struct {
 	algo SigningAlgo[any, any, any]
 	pk   any
 }
+type pp struct {
+	b []byte
+}
+
+func (p *pp) Equal(pulicKey PublicKey) bool {
+	b, err := pulicKey.MarshalBinary()
+	handy.Throw(err)
+	return bcrypt.CompareHashAndPassword(p.b, b) == nil
+}
+
+func (p *pp) MarshalBinary() (data []byte, err error) {
+	return p.b, nil
+}
+
+func (p *pp) MarshalJSON() (data []byte, err error) {
+	return []byte(hex.EncodeToString(p.b)), nil
+}
+
+func (p *pp) UnmarshalBinary(data []byte) error {
+	_, err := bcrypt.Cost(data)
+	if err != nil {
+		return err
+	}
+	p.b = data
+	return nil
+}
+
+func (p *pp) UnmarshalJSON(data []byte) error {
+	x, err := hex.DecodeString(string(data))
+	if err != nil {
+		return err
+	}
+	return p.UnmarshalBinary(x)
+}
+
+func (pk *p) Fork() HashedPublicKey {
+	b, err := bcrypt.GenerateFromPassword(pk.encode(), bcrypt.DefaultCost)
+	handy.Throw(err)
+	return &pp{b}
+}
+
 type si struct {
 	algo SigningAlgo[any, any, any]
 	sig  any
@@ -66,12 +116,24 @@ func (sig *si) MarshalBinary() ([]byte, error) {
 	return sig.encode(), nil
 }
 
+func (sig *si) MarshalJSON() ([]byte, error) {
+	return []byte(hex.EncodeToString(sig.encode())), nil
+}
+
 func (sk *s) MarshalBinary() ([]byte, error) {
+	panic("marshaling secret-key is not allowed and can cause security problems")
+}
+
+func (sk *s) MarshalJSON() ([]byte, error) {
 	panic("marshaling secret-key is not allowed and can cause security problems")
 }
 
 func (pk *p) MarshalBinary() ([]byte, error) {
 	return pk.encode(), nil
+}
+
+func (pk *p) MarshalJSON() ([]byte, error) {
+	return []byte(hex.EncodeToString(pk.encode())), nil
 }
 
 func (sig *si) UnmarshalBinary(data []byte) error {
@@ -81,6 +143,14 @@ func (sig *si) UnmarshalBinary(data []byte) error {
 	}
 	return err
 }
+
+func (sig *si) UnmarshalJSON(data []byte) error {
+	x, err := hex.DecodeString(string(data))
+	if err != nil {
+		return err
+	}
+	return sig.UnmarshalBinary(x)
+}
 func (sk *s) UnmarshalBinary(data []byte) error {
 	sk2, err := UnmarshalBinarySecretKey(data)
 	if err == nil {
@@ -88,6 +158,14 @@ func (sk *s) UnmarshalBinary(data []byte) error {
 	}
 	return err
 }
+func (sk *s) UnmarshalText(data []byte) error {
+	x, err := hex.DecodeString(string(data))
+	if err != nil {
+		return err
+	}
+	return sk.UnmarshalBinary(x)
+}
+
 func (pk *p) UnmarshalBinary(data []byte) error {
 	pk2, err := UnmarshalBinaryPublicKey(data)
 	if err == nil {
@@ -95,7 +173,13 @@ func (pk *p) UnmarshalBinary(data []byte) error {
 	}
 	return err
 }
-
+func (pk *p) UnmarshalJSON(data []byte) error {
+	x, err := hex.DecodeString(string(data))
+	if err != nil {
+		return err
+	}
+	return pk.UnmarshalBinary(x)
+}
 func (sig *si) Unwrap() any {
 	return sig.sig
 }
@@ -152,6 +236,14 @@ func (sk *s) UnsafeMarshalBinary() ([]byte, error) {
 	b := algo.MarshalBinarySecretKey(sk.sk)
 	return encode(name, 1, b), nil
 }
+
+func (sk *s) UnsafeMarshalText() ([]byte, error) {
+	algo := sk.algo
+	name := algo.Algo()
+	b := algo.MarshalBinarySecretKey(sk.sk)
+	return []byte(hex.EncodeToString(encode(name, 1, b))), nil
+}
+
 func (sig *si) encode() []byte {
 	algo := sig.algo
 	name := algo.Algo()
@@ -182,6 +274,13 @@ func UnmarshalBinarySecretKey(b []byte) (SecretKey, error) {
 		return nil, err
 	}
 	return &s{algo, secKey}, nil
+}
+func UnmarshalTextSecretKey(b []byte) (SecretKey, error) {
+	x, err := hex.DecodeString(string(b))
+	if err != nil {
+		return nil, err
+	}
+	return UnmarshalBinarySecretKey(x)
 }
 func UnmarshalBinaryPublicKey(b []byte) (PublicKey, error) {
 	name, kind, bin, err := decode(b)

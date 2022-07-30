@@ -54,7 +54,6 @@ type PublicKey interface {
 	Unwrap() any
 	Fork() HashedPublicKey
 }
-
 type Signature interface {
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
@@ -240,10 +239,25 @@ func (sk *s) Sign(msg []byte) Signature {
 	return &si{algo, signature}
 }
 
-func New(algo string) SecretKey {
+func GenerateSecretKey(algo string) SecretKey {
 	algorithm := regSigAlgo[algo]
 	secKey := algorithm.New()
 	return &s{algorithm, secKey}
+}
+func NewSecretKey() SecretKey {
+	return &s{}
+}
+
+func NewPublicKey() PublicKey {
+	return &p{}
+}
+
+func NewHashedPublicKey() HashedPublicKey {
+	return &pp{}
+}
+
+func NewSignature() Signature {
+	return &si{}
 }
 
 func encode(algo string, kind int8, b []byte) []byte {

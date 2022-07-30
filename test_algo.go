@@ -8,7 +8,7 @@ import (
 func TestAlgo(algo SigningAlgo[any, any, any]) error {
 	Algo := algo.Algo()
 	RegisterSigAlgo(algo)
-	sk := New(Algo)
+	sk := GenerateSecretKey(Algo)
 	if sk.Algo() != Algo {
 		return errors.New("non-equal algorithm name")
 	}
@@ -54,7 +54,7 @@ func TestAlgo(algo SigningAlgo[any, any, any]) error {
 	if err != nil {
 		return err
 	}
-	sk2 := New(Algo)
+	sk2 := GenerateSecretKey(Algo)
 	err = sk2.PublicKey().Verify(sig, msg)
 	if err == nil {
 		return errors.New("algorithm failed")

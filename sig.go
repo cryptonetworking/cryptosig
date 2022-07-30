@@ -171,7 +171,7 @@ func (sig *si) UnmarshalJSON(data []byte) error {
 }
 
 func (pk *p) UnmarshalJSON(data []byte) error {
-	x, err := hex.DecodeString(fastjson.GetString(data, "sig"))
+	x, err := hex.DecodeString(fastjson.GetString(data, "pub"))
 	if err != nil {
 		return err
 	}

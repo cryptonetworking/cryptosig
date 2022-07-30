@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/itsabgr/go-handy"
+	"github.com/valyala/fastjson"
 	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -81,7 +82,7 @@ func (p *pp) MarshalBinary() (data []byte, err error) {
 }
 
 func (p *pp) MarshalJSON() (data []byte, err error) {
-	return []byte(hex.EncodeToString(p.b)), nil
+	return []byte(fmt.Sprintf(`{"pub":"%s"}`, hex.EncodeToString(p.b))), nil
 }
 
 func (p *pp) UnmarshalBinary(data []byte) error {
@@ -94,7 +95,7 @@ func (p *pp) UnmarshalBinary(data []byte) error {
 }
 
 func (p *pp) UnmarshalJSON(data []byte) error {
-	x, err := hex.DecodeString(string(data))
+	x, err := hex.DecodeString(fastjson.GetString(data, "pub"))
 	if err != nil {
 		return err
 	}
@@ -117,7 +118,10 @@ func (sig *si) MarshalBinary() ([]byte, error) {
 }
 
 func (sig *si) MarshalJSON() ([]byte, error) {
-	return []byte(hex.EncodeToString(sig.encode())), nil
+	algo := sig.algo
+	name := algo.Algo()
+	b := algo.MarshalBinarySignature(sig.sig)
+	return []byte(fmt.Sprintf(`{"sig":"%s","algo":"%s"}`, hex.EncodeToString(b), name)), nil
 }
 
 func (sk *s) MarshalBinary() ([]byte, error) {
@@ -133,7 +137,10 @@ func (pk *p) MarshalBinary() ([]byte, error) {
 }
 
 func (pk *p) MarshalJSON() ([]byte, error) {
-	return []byte(hex.EncodeToString(pk.encode())), nil
+	algo := pk.algo
+	name := algo.Algo()
+	b := algo.MarshalBinaryPublicKey(pk.pk)
+	return []byte(fmt.Sprintf(`{"pub":"%s","algo":"%s"}`, hex.EncodeToString(b), name)), nil
 }
 
 func (sig *si) UnmarshalBinary(data []byte) error {
@@ -145,12 +152,43 @@ func (sig *si) UnmarshalBinary(data []byte) error {
 }
 
 func (sig *si) UnmarshalJSON(data []byte) error {
-	x, err := hex.DecodeString(string(data))
+	x, err := hex.DecodeString(fastjson.GetString(data, "sig"))
 	if err != nil {
 		return err
 	}
-	return sig.UnmarshalBinary(x)
+	name := fastjson.GetString(data, "algo")
+	algo, found := regSigAlgo[name]
+	if !found {
+		return fmt.Errorf("unsupported algorithm %q", name)
+	}
+	signature, err := algo.UnmarshalBinarySignature(x)
+	if err != nil {
+		return err
+	}
+	sig.algo = algo
+	sig.sig = signature
+	return nil
 }
+
+func (pk *p) UnmarshalJSON(data []byte) error {
+	x, err := hex.DecodeString(fastjson.GetString(data, "sig"))
+	if err != nil {
+		return err
+	}
+	name := fastjson.GetString(data, "algo")
+	algo, found := regSigAlgo[name]
+	if !found {
+		return fmt.Errorf("unsupported algorithm %q", name)
+	}
+	public, err := algo.UnmarshalBinaryPublicKey(x)
+	if err != nil {
+		return err
+	}
+	pk.algo = algo
+	pk.pk = public
+	return nil
+}
+
 func (sk *s) UnmarshalBinary(data []byte) error {
 	sk2, err := UnmarshalBinarySecretKey(data)
 	if err == nil {
@@ -173,13 +211,7 @@ func (pk *p) UnmarshalBinary(data []byte) error {
 	}
 	return err
 }
-func (pk *p) UnmarshalJSON(data []byte) error {
-	x, err := hex.DecodeString(string(data))
-	if err != nil {
-		return err
-	}
-	return pk.UnmarshalBinary(x)
-}
+
 func (sig *si) Unwrap() any {
 	return sig.sig
 }
@@ -275,6 +307,7 @@ func UnmarshalBinarySecretKey(b []byte) (SecretKey, error) {
 	}
 	return &s{algo, secKey}, nil
 }
+
 func UnmarshalTextSecretKey(b []byte) (SecretKey, error) {
 	x, err := hex.DecodeString(string(b))
 	if err != nil {
@@ -282,6 +315,7 @@ func UnmarshalTextSecretKey(b []byte) (SecretKey, error) {
 	}
 	return UnmarshalBinarySecretKey(x)
 }
+
 func UnmarshalBinaryPublicKey(b []byte) (PublicKey, error) {
 	name, kind, bin, err := decode(b)
 	if err != nil {

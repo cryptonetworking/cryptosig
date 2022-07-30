@@ -94,7 +94,9 @@ func (ed25519) Verify(sig any, pk any, msg []byte) error {
 	}
 	return errors.New("invalid signature")
 }
-
+func Interface() cryptosig.SigningAlgo[any, any, any] {
+	return ed25519{}
+}
 func init() {
 	cryptosig.RegisterSigAlgo(ed25519{})
 }

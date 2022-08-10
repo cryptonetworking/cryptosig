@@ -236,7 +236,7 @@ func GetAlgo(name string) SigningAlgo[any, any, any] {
 	algo, _ := regSigAlgo[name]
 	return algo
 }
-func ListAlgo(name string) []string {
+func ListAlgo() []string {
 	algos := make([]string, 0, len(regSigAlgo))
 	for name := range regSigAlgo {
 		algos = append(algos, name)

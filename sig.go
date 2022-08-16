@@ -348,7 +348,10 @@ func UnmarshalTextSecretKey(b []byte) (SecretKey, error) {
 	}
 	return UnmarshalBinarySecretKey(x)
 }
-
+func UnmarshalHashedPublicKey(b []byte) (HashedPublicKey, error) {
+	pp := new(pp)
+	return pp, pp.UnmarshalBinary(b)
+}
 func UnmarshalBinaryPublicKey(b []byte) (PublicKey, error) {
 	name, kind, bin, err := decode(b)
 	if err != nil {

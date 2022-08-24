@@ -17,7 +17,8 @@ func TestAlgo(algo SigningAlgo[any, any, any]) error {
 	if err != nil {
 		return err
 	}
-	sig, err := UnmarshalBinarySignature(b)
+	sig := new(Signature)
+	err = sig.UnmarshalBinary(b)
 	if err != nil {
 		return err
 	}
@@ -28,7 +29,8 @@ func TestAlgo(algo SigningAlgo[any, any, any]) error {
 	if err != nil {
 		return err
 	}
-	sk, err = UnmarshalBinarySecretKey(b)
+	sk = new(SecretKey)
+	err = sk.UnmarshalBinary(b)
 	if err != nil {
 		return err
 	}
@@ -39,7 +41,8 @@ func TestAlgo(algo SigningAlgo[any, any, any]) error {
 	if err != nil {
 		return err
 	}
-	pk, err := UnmarshalBinaryPublicKey(b)
+	pk := new(PublicKey)
+	err = pk.UnmarshalBinary(b)
 	if err != nil {
 		return err
 	}

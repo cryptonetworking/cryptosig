@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"github.com/cryptonetworking/cryptosig"
-	"github.com/itsabgr/go-handy"
 )
 
 type ed25519 struct{}
@@ -84,7 +83,9 @@ func (ed25519) Derive(sk any) any {
 
 func (ed25519) New() any {
 	_, sk, err := lib.GenerateKey(rand.Reader)
-	handy.Throw(err)
+	if err != nil {
+		panic(err)
+	}
 	return []byte(sk)
 }
 

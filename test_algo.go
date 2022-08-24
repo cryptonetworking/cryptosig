@@ -1,8 +1,9 @@
 package cryptosig
 
 import (
+	"crypto/rand"
 	"errors"
-	"github.com/itsabgr/go-handy"
+	"io"
 )
 
 func TestAlgo(algo SigningAlgo[any, any, any]) error {
@@ -12,7 +13,11 @@ func TestAlgo(algo SigningAlgo[any, any, any]) error {
 	if sk.Algo() != Algo {
 		return errors.New("non-equal algorithm name")
 	}
-	msg := handy.Rand(512)
+	msg := make([]byte, 512)
+	_, err := io.ReadFull(rand.Reader, msg)
+	if err != nil {
+		panic(err)
+	}
 	b, err := sk.Sign(msg).MarshalText()
 	if err != nil {
 		return err

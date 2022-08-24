@@ -2,7 +2,6 @@ package cryptosig
 
 import (
 	"errors"
-	"github.com/itsabgr/go-handy"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,13 +15,17 @@ func (pk *PublicKey) Fork() *HashedPublicKey {
 		panic(err)
 	}
 	b, err := bcrypt.GenerateFromPassword(text, bcrypt.DefaultCost)
-	handy.Throw(err)
+	if err != nil {
+		panic(err)
+	}
 	return &HashedPublicKey{b}
 }
 
 func (p *HashedPublicKey) Equal(publicKey *PublicKey) bool {
 	text, err := publicKey.MarshalText()
-	handy.Throw(err)
+	if err != nil {
+		panic(err)
+	}
 	return bcrypt.CompareHashAndPassword(p.b, text) == nil
 }
 

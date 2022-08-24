@@ -1,10 +1,8 @@
 package cryptosig
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/valyala/fastjson"
 )
 
 type Signature struct {
@@ -49,24 +47,5 @@ func (sig *Signature) UnmarshalText(text []byte) error {
 	}
 	sig.sig = signature
 	sig.algo = algo
-	return nil
-}
-
-func (sig *Signature) UnmarshalJSON(data []byte) error {
-	x, err := hex.DecodeString(fastjson.GetString(data, "sig"))
-	if err != nil {
-		return err
-	}
-	name := fastjson.GetString(data, "algo")
-	algo, found := regSigAlgo[name]
-	if !found {
-		return fmt.Errorf("unsupported algorithm %q", name)
-	}
-	signature, err := algo.UnmarshalBinarySignature(x)
-	if err != nil {
-		return err
-	}
-	sig.algo = algo
-	sig.sig = signature
 	return nil
 }

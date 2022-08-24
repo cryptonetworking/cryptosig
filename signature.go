@@ -24,29 +24,19 @@ func (sig *Signature) Algo() string {
 	return sig.algo.Algo()
 }
 
-func (sig *Signature) MarshalBinary() ([]byte, error) {
-	return sig.encode(), nil
-}
-
-func (sig *Signature) MarshalJSON() ([]byte, error) {
+func (sig *Signature) MarshalText() ([]byte, error) {
 	algo := sig.algo
 	name := algo.Algo()
 	b := algo.MarshalBinarySignature(sig.sig)
-	return []byte(fmt.Sprintf(`{"sig":"%s","algo":"%s"}`, hex.EncodeToString(b), name)), nil
+	return encode("sig", name, b), nil
 }
 
-func (sig *Signature) encode() []byte {
-	algo := sig.algo
-	name := algo.Algo()
-	b := algo.MarshalBinarySignature(sig.sig)
-	return encode(name, 3, b)
-}
-func (sig *Signature) UnmarshalBinary(b []byte) error {
-	name, kind, p, err := decode(b)
+func (sig *Signature) UnmarshalText(text []byte) error {
+	kind, name, p, err := decode(text)
 	if err != nil {
 		return err
 	}
-	if kind != 3 {
+	if kind != "sig" {
 		return errors.New("not Signature")
 	}
 	algo, found := regSigAlgo[name]

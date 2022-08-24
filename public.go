@@ -1,12 +1,8 @@
 package cryptosig
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/itsabgr/go-handy"
-	"github.com/valyala/fastjson"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type PublicKey struct {
@@ -14,48 +10,19 @@ type PublicKey struct {
 	pk   any
 }
 
-func (pk *PublicKey) Fork() HashedPublicKey {
-	b, err := bcrypt.GenerateFromPassword(pk.encode(), bcrypt.DefaultCost)
-	handy.Throw(err)
-	return HashedPublicKey{b}
-}
-
-func (pk *PublicKey) MarshalBinary() ([]byte, error) {
-	return pk.encode(), nil
-}
-
-func (pk *PublicKey) MarshalJSON() ([]byte, error) {
+func (pk *PublicKey) MarshalText() ([]byte, error) {
 	algo := pk.algo
 	name := algo.Algo()
 	b := algo.MarshalBinaryPublicKey(pk.pk)
-	return []byte(fmt.Sprintf(`{"pub":"%s","algo":"%s"}`, hex.EncodeToString(b), name)), nil
+	return encode("pub", name, b), nil
 }
 
-func (pk *PublicKey) UnmarshalJSON(data []byte) error {
-	x, err := hex.DecodeString(fastjson.GetString(data, "pub"))
+func (pk *PublicKey) UnmarshalText(text []byte) error {
+	kind, name, bin, err := decode(text)
 	if err != nil {
 		return err
 	}
-	name := fastjson.GetString(data, "algo")
-	algo, found := regSigAlgo[name]
-	if !found {
-		return fmt.Errorf("unsupported algorithm %q", name)
-	}
-	public, err := algo.UnmarshalBinaryPublicKey(x)
-	if err != nil {
-		return err
-	}
-	pk.algo = algo
-	pk.pk = public
-	return nil
-}
-
-func (pk *PublicKey) UnmarshalBinary(b []byte) error {
-	name, kind, bin, err := decode(b)
-	if err != nil {
-		return err
-	}
-	if kind != 2 {
+	if kind != "pub" {
 		return errors.New("not PublicKey")
 	}
 	algo, found := regSigAlgo[name]
@@ -73,13 +40,6 @@ func (pk *PublicKey) UnmarshalBinary(b []byte) error {
 
 func (pk *PublicKey) Unwrap() any {
 	return pk.pk
-}
-
-func (pk *PublicKey) encode() []byte {
-	algo := pk.algo
-	name := algo.Algo()
-	b := algo.MarshalBinaryPublicKey(pk.pk)
-	return encode(name, 2, b)
 }
 
 func (pk *PublicKey) Algo() string {

@@ -2,8 +2,9 @@ package cryptosig
 
 import (
 	"bytes"
-	"github.com/itsabgr/go-handy"
-	"github.com/vmihailenco/msgpack/v5"
+	"errors"
+	"github.com/mr-tron/base58"
+	"strings"
 )
 
 func RegisterSigAlgo(algo SigningAlgo[any, any, any]) {
@@ -23,29 +24,19 @@ func ListAlgo() []string {
 
 var regSigAlgo = make(map[string]SigningAlgo[any, any, any])
 
-func decode(p []byte) (algo string, kind int8, b []byte, err error) {
-	dec := msgpack.NewDecoder(bytes.NewReader(p))
-	algo, err = dec.DecodeString()
+func decode(text []byte) (kind string, algo string, b []byte, err error) {
+	parts := bytes.SplitN(text, []byte{':'}, 3)
+	if len(parts) != 3 {
+		return "", "", nil, errors.New("cryptosig: invalid codec")
+	}
+	b, err = base58.FastBase58Decoding(string(parts[2]))
 	if err != nil {
 		return
 	}
-	kind, err = dec.DecodeInt8()
-	if err != nil {
-		return
-	}
-	b, err = dec.DecodeBytes()
-	if err != nil {
-		return
-	}
-	return
+	return string(parts[0]), string(parts[1]), b, nil
 }
-func encode(algo string, kind int8, b []byte) []byte {
-	buff := bytes.NewBuffer(nil)
-	enc := msgpack.NewEncoder(buff)
-	handy.Throw(enc.EncodeString(algo))
-	handy.Throw(enc.EncodeInt8(kind))
-	handy.Throw(enc.EncodeBytes(b))
-	return buff.Bytes()
+func encode(kind, algo string, b []byte) []byte {
+	return []byte(strings.Join([]string{kind, algo, base58.FastBase58Encoding(b)}, ":"))
 }
 
 type SigningAlgo[S, P, Sig any] interface {

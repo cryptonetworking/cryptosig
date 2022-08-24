@@ -1,7 +1,6 @@
 package cryptosig
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 )
@@ -35,27 +34,24 @@ func GenerateSecretKey(algo string) *SecretKey {
 	secKey := algorithm.New()
 	return &SecretKey{algorithm, secKey}
 }
-func (sk *SecretKey) MarshalJSON() ([]byte, error) {
-	panic(errors.New("marshaling secret-key is not allowed and can cause security problems"))
+
+func (sk *SecretKey) MarshalText() ([]byte, error) {
+	panic(errors.New("marshaling secret-key is not allowed and cause security problems"))
 }
 
-func (sk *SecretKey) MarshalBinary() ([]byte, error) {
-	panic(errors.New("marshaling secret-key is not allowed and can cause security problems"))
-}
-
-func (sk *SecretKey) UnmarshalBinary(b []byte) error {
-	name, kind, p, err := decode(b)
+func (sk *SecretKey) UnmarshalText(b []byte) error {
+	kind, name, bin, err := decode(b)
 	if err != nil {
 		return err
 	}
-	if kind != 1 {
+	if kind != "sec" {
 		return errors.New("not SecretKey")
 	}
 	algo, found := regSigAlgo[name]
 	if !found {
 		return fmt.Errorf("unsupported algorithm %q", name)
 	}
-	secKey, err := algo.UnmarshalBinarySecretKey(p)
+	secKey, err := algo.UnmarshalBinarySecretKey(bin)
 	if err != nil {
 		return err
 	}
@@ -63,17 +59,9 @@ func (sk *SecretKey) UnmarshalBinary(b []byte) error {
 	sk.sk = secKey
 	return nil
 }
-func (sk *SecretKey) UnmarshalText(data []byte) error {
-	x, err := hex.DecodeString(string(data))
-	if err != nil {
-		return err
-	}
-	return sk.UnmarshalBinary(x)
-}
-
-func (sk *SecretKey) UnsafeMarshalBinary() ([]byte, error) {
+func (sk *SecretKey) UnsafeUnmarshalText() ([]byte, error) {
 	algo := sk.algo
 	name := algo.Algo()
 	b := algo.MarshalBinarySecretKey(sk.sk)
-	return encode(name, 1, b), nil
+	return encode("sec", name, b), nil
 }

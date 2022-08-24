@@ -13,36 +13,36 @@ func TestAlgo(algo SigningAlgo[any, any, any]) error {
 		return errors.New("non-equal algorithm name")
 	}
 	msg := handy.Rand(512)
-	b, err := sk.Sign(msg).MarshalBinary()
+	b, err := sk.Sign(msg).MarshalText()
 	if err != nil {
 		return err
 	}
 	sig := new(Signature)
-	err = sig.UnmarshalBinary(b)
+	err = sig.UnmarshalText(b)
 	if err != nil {
 		return err
 	}
 	if sig.Algo() != Algo {
 		return errors.New("non-equal algorithm name")
 	}
-	b, err = sk.UnsafeMarshalBinary()
+	b, err = sk.UnsafeUnmarshalText()
 	if err != nil {
 		return err
 	}
 	sk = new(SecretKey)
-	err = sk.UnmarshalBinary(b)
+	err = sk.UnmarshalText(b)
 	if err != nil {
 		return err
 	}
 	if sk.Algo() != Algo {
 		return err
 	}
-	b, err = sk.PublicKey().MarshalBinary()
+	b, err = sk.PublicKey().MarshalText()
 	if err != nil {
 		return err
 	}
 	pk := new(PublicKey)
-	err = pk.UnmarshalBinary(b)
+	err = pk.UnmarshalText(b)
 	if err != nil {
 		return err
 	}

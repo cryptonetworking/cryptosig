@@ -1,6 +1,7 @@
 package cryptosig
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 )
@@ -17,6 +18,10 @@ func (sk *SecretKey) Algo() string {
 func (sk *SecretKey) PublicKey() *PublicKey {
 	algo := sk.algo
 	return &PublicKey{algo, algo.Derive(sk.sk)}
+}
+func (sk *SecretKey) TLS() *tls.Certificate {
+	algo := sk.algo
+	return algo.TLS(sk.sk)
 }
 
 func (sk *SecretKey) Sign(msg []byte) *Signature {

@@ -2,6 +2,7 @@ package cryptosig
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"github.com/mr-tron/base58"
 	"strings"
@@ -51,4 +52,5 @@ type SigningAlgo[S, P, Sig any] interface {
 	Derive(S) P
 	New() S
 	Verify(Sig, P, []byte) error
+	TLS(P) *tls.Certificate
 }
